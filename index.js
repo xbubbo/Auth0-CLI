@@ -5,6 +5,7 @@ require('dotenv').config();
 const DOMAIN = process.env.DOMAIN;
 const CLIENT_ID = process.env.CLIENT_ID;
 const SECRET = process.env.SECRET;
+const INACTIVE = parseInt(process.env.INACTIVE, 10);
 
 async function getAccessToken() {
   try {
@@ -63,7 +64,7 @@ async function ListAll() {
 
   console.log('List of Users:');
   users.forEach(user => {
-    console.log(`- ${user.email} (User ID: ${user.user_id}, Logins Count: ${user.logins_count !== undefined ? user.logins_count : 'Not Available'})`); // Adjust logins_count display
+    console.log(`- ${user.email} (User ID: ${user.user_id}, Logins Count: ${user.logins_count !== undefined ? user.logins_count : 'Not Available'})`); 
   });
 }
 
@@ -131,6 +132,93 @@ async function DeleteAll() {
   }
 }
 
+async function DeleteNoLogins() {
+    const accessToken = await getAccessToken();
+    if (!accessToken) return;
+  
+    const users = await GetAll(accessToken);
+    if (!users || users.length === 0) {
+      console.log('No users found.');
+      return;
+    }
+  
+    const NoLogins = users.filter(user => user.logins_count === undefined || user.logins_count === 0);
+    
+    if (NoLogins.length === 0) {
+      console.log('No users with zero logins found.');
+    } else {
+      console.log('List of Users with 0 Logins:');
+      NoLogins.forEach(user => {
+        console.log(`- ${user.email} (User ID: ${user.user_id})`);
+      });
+  
+      const answer = await inquirer.prompt([
+        {
+          type: 'confirm',
+          name: 'confirm',
+          message: 'Are you sure you want to delete all users with no logins? This action is irreversible.',
+          default: false,
+        },
+      ]);
+  
+      if (answer.confirm) {
+        for (const user of NoLogins) {
+          await deleteUser(accessToken, user.user_id);
+        }
+        console.log('All users with no logins deleted successfully.');
+      } else {
+        console.log('Action cancelled. No users were deleted.');
+      }
+    }
+  }
+
+  async function DeleteInactive() {
+    const accessToken = await getAccessToken();
+    if (!accessToken) return;
+  
+    const users = await GetAll(accessToken);
+    if (!users || users.length === 0) {
+      console.log('No users found.');
+      return;
+    }
+  
+    const cutoffDate = new Date();
+    cutoffDate.setMonth(cutoffDate.getMonth() - INACTIVE);
+  
+    const inactiveUsers = users.filter(user => {
+      const lastLogin = user.last_login ? new Date(user.last_login) : null;
+      return !lastLogin || lastLogin < cutoffDate; 
+    });
+  
+    if (inactiveUsers.length === 0) {
+      console.log('No inactive users found.');
+    } else {
+      console.log('List of Inactive Users:');
+      inactiveUsers.forEach(user => {
+        console.log(`- ${user.email} (User ID: ${user.user_id})`);
+      });
+  
+      const answer = await inquirer.prompt([
+        {
+          type: 'confirm',
+          name: 'confirm',
+          message: 'Are you sure you want to delete all inactive users? This action is irreversible.',
+          default: false,
+        },
+      ]);
+  
+      if (answer.confirm) {
+        for (const user of inactiveUsers) {
+          await deleteUser(accessToken, user.user_id);
+        }
+        console.log('All inactive users deleted successfully.');
+      } else {
+        console.log('Action cancelled. No users were deleted.');
+      }
+    }
+  }
+  
+  
 async function ChooseList() {
   const option = await inquirer.prompt([
     {
@@ -151,20 +239,42 @@ async function ChooseList() {
   }
 }
 
+async function ChooseDelete() {
+    const option = await inquirer.prompt([
+      {
+        type: 'list',
+        name: 'deleteOption',
+        message: 'What do you want to delete?',
+        choices: ['Delete All Users', 'Delete Users with No Logins', 'Delete Inactive Users', 'Back'],
+      },
+    ]);
+  
+    if (option.deleteOption === 'Delete All Users') {
+      await DeleteAll();
+    } else if (option.deleteOption === 'Delete Users with No Logins') {
+      await DeleteNoLogins();
+    } else if (option.deleteOption === 'Delete Inactive Users') {
+      await DeleteInactive(); 
+    } else {
+      console.log('Going back...');
+      return; 
+    }
+  }
+  
 async function main() {
   const options = await inquirer.prompt([
     {
       type: 'list',
       name: 'action',
       message: 'What do you want to do?',
-      choices: ['List Users', 'Delete All Users', 'Exit'],
+      choices: ['List Users', 'Delete Users', 'Exit'],
     },
   ]);
 
   if (options.action === 'List Users') {
     await ChooseList(); 
-  } else if (options.action === 'Delete All Users') {
-    await DeleteAll();
+  } else if (options.action === 'Delete Users') {
+    await ChooseDelete();
   } else {
     console.log('Exiting...');
   }
