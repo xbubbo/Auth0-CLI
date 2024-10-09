@@ -6,7 +6,8 @@ require('dotenv').config();
 const DOMAIN = process.env.DOMAIN;
 const CLIENT_ID = process.env.CLIENT_ID;
 const SECRET = process.env.SECRET;
-const INACTIVE = parseFloat(process.env.INACTIVE);
+const MONTHS = parseInt(process.env.INACTIVEM) || 0;
+const DAYS = parseInt(process.env.INACTIVED) || 0;
 
 async function getAccessToken() {
   try {
@@ -92,34 +93,46 @@ async function NoLogins() {
 }
 
 async function ListInactive() {
-  const accessToken = await getAccessToken();
-  if (!accessToken) return;
-
-  const users = await GetAll(accessToken);
-  if (!users || users.length === 0) {
-    console.log('No users found.');
-    return;
-  }
-
-  const cutoffDate = new Date();
-  cutoffDate.setMonth(cutoffDate.getMonth() - INACTIVE);
-
-  const inactiveUsers = users.filter(user => {
-    const lastLogin = user.last_login ? new Date(user.last_login) : null;
-    return !lastLogin || lastLogin < cutoffDate;
-  });
-
-  if (inactiveUsers.length === 0) {
-    console.log('No inactive users found.');
-  } else {
-    console.log(`Inactive Users: ${inactiveUsers.length}`);
-    inactiveUsers.forEach(user => {
+    const accessToken = await getAccessToken();
+    if (!accessToken) return;
+  
+    const users = await GetAll(accessToken);
+    if (!users || users.length === 0) {
+      console.log('No users found.');
+      return;
+    }
+  
+    if (MONTHS === 0 && DAYS === 0) {
+      console.warn('Inactive Months and Days are not set. Please set at least one.');
+      return;
+    }
+  
+    let cutoffDate = new Date();
+    
+    if (MONTHS > 0) {
+      cutoffDate.setMonth(cutoffDate.getMonth() - MONTHS);
+    }
+  
+    if (DAYS > 0) {
+      cutoffDate.setDate(cutoffDate.getDate() - DAYS);
+    }
+  
+    const inactiveUsers = users.filter(user => {
       const lastLogin = user.last_login ? new Date(user.last_login) : null;
-      const inactiveDuration = lastLogin ? Math.floor((Date.now() - lastLogin) / (1000 * 60 * 60 * 24)) : 'N/A';
-      console.log(`- ${user.email} (User ID: ${user.user_id}, Inactive for: ${inactiveDuration} days)`);
+      return !lastLogin || lastLogin < cutoffDate;
     });
+  
+    if (inactiveUsers.length === 0) {
+      console.log('No inactive users found.');
+    } else {
+      console.log(`Inactive Users: ${inactiveUsers.length}`);
+      inactiveUsers.forEach(user => {
+        const lastLogin = user.last_login ? new Date(user.last_login) : null;
+        const inactiveDuration = lastLogin ? Math.floor((Date.now() - lastLogin) / (1000 * 60 * 60 * 24)) : 'N/A';
+        console.log(`- ${user.email} (User ID: ${user.user_id}, Inactive for: ${inactiveDuration} days)`);
+      });
+    }
   }
-}
 
 async function deleteUser(accessToken, userId) {
   try {
@@ -204,57 +217,65 @@ async function DeleteNoLogins() {
 }
 
 async function DeleteInactive() {
-  const accessToken = await getAccessToken();
-  if (!accessToken) return;
-
-  const users = await GetAll(accessToken);
-  if (!users || users.length === 0) {
-    console.log('No users found.');
-    return;
-  }
-
-  const cutoffDate = new Date();
-  cutoffDate.setMonth(cutoffDate.getMonth() - INACTIVE);
-
-  const inactiveUsers = users.filter(user => {
-    const lastLogin = user.last_login ? new Date(user.last_login) : null;
-    return !lastLogin || lastLogin < cutoffDate;
-  });
-
-  const inactiveCount = inactiveUsers.length;
-  if (inactiveCount === 0) {
-    console.log('No inactive users found.');
-  } else {
-    console.log(`Fetched ${Math.ceil(users.length / 50)} pages with ${users.length} users`);
-    console.log(`Inactive Users: ${inactiveCount}`);
-    console.log('List of Inactive Users:');
-
-    inactiveUsers.forEach(user => {
+    const accessToken = await getAccessToken();
+    if (!accessToken) return;
+  
+    const users = await GetAll(accessToken);
+    if (!users || users.length === 0) {
+      console.log('No users found.');
+      return;
+    }
+  
+    const cutoffDate = new Date();
+  
+    if (MONTHS > 0) {
+      cutoffDate.setMonth(cutoffDate.getMonth() - MONTHS);
+    }
+  
+    if (DAYS > 0) {
+      cutoffDate.setDate(cutoffDate.getDate() - DAYS);
+    }
+  
+    const inactiveUsers = users.filter(user => {
       const lastLogin = user.last_login ? new Date(user.last_login) : null;
-      const inactiveDuration = lastLogin ? Math.floor((Date.now() - lastLogin) / (1000 * 60 * 60 * 24)) : 'N/A';
-      console.log(`- ${user.email} (User ID: ${user.user_id}, Inactive for: ${inactiveDuration} days)`);
+      return !lastLogin || lastLogin < cutoffDate;
     });
-
-    const answer = await inquirer.prompt([
-      {
-        type: 'confirm',
-        name: 'confirm',
-        message: 'Are you sure you want to delete all inactive users? This action is irreversible.',
-        default: false,
-      },
-    ]);
-
-    if (answer.confirm) {
-      for (const user of inactiveUsers) {
-        await deleteUser(accessToken, user.user_id);
-      }
-      console.log('All inactive users deleted successfully.');
+  
+    const inactiveCount = inactiveUsers.length;
+    if (inactiveCount === 0) {
+      console.log('No inactive users found.');
     } else {
-      console.log('Action cancelled. No users were deleted.');
+      console.log(`Fetched ${Math.ceil(users.length / 50)} pages with ${users.length} users`);
+      console.log(`Inactive Users: ${inactiveCount}`);
+      console.log('List of Inactive Users:');
+  
+      inactiveUsers.forEach(user => {
+        const lastLogin = user.last_login ? new Date(user.last_login) : null;
+        const inactiveDuration = lastLogin ? Math.floor((Date.now() - lastLogin) / (1000 * 60 * 60 * 24)) : 'N/A';
+        console.log(`- ${user.email} (User ID: ${user.user_id}, Inactive for: ${inactiveDuration} days)`);
+      });
+  
+      const answer = await inquirer.prompt([
+        {
+          type: 'confirm',
+          name: 'confirm',
+          message: 'Are you sure you want to delete all inactive users? This action is irreversible.',
+          default: false,
+        },
+      ]);
+  
+      if (answer.confirm) {
+        console.log(`Deleting ${inactiveCount} inactive users...`);
+        for (const user of inactiveUsers) {
+          await deleteUser(accessToken, user.user_id);
+        }
+        console.log('All inactive users deleted successfully.');
+      } else {
+        console.log('Action cancelled. No users were deleted.');
+      }
     }
   }
-}
-
+  
 async function AddUser() {
     const accessToken = await getAccessToken();
     if (!accessToken) return;
