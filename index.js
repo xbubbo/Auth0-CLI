@@ -22,12 +22,30 @@ async function getAccessToken() {
 
 async function GetAll(accessToken) {
   try {
-    const response = await axios.get(`https://${DOMAIN}/api/v2/users`, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    });
-    return response.data;
+    let users = [];
+    let page = 0;
+    const perPage = 50; 
+    let hasMore = true;
+
+    while (hasMore) {
+      const response = await axios.get(`https://${DOMAIN}/api/v2/users`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        params: {
+          page: page,
+          per_page: perPage,
+        },
+      });
+
+      users = users.concat(response.data);
+      console.log(`Fetched page ${page + 1} with ${response.data.length} users`); 
+      hasMore = response.data.length === perPage; 
+      page++;
+    }
+
+    console.log(`Total users fetched: ${users.length}`); 
+    return users;
   } catch (error) {
     console.error('Error fetching users:', error.response ? error.response.data : error.message);
   }
@@ -45,8 +63,30 @@ async function ListAll() {
 
   console.log('List of Users:');
   users.forEach(user => {
-    console.log(`- ${user.email} (User ID: ${user.user_id})`);
+    console.log(`- ${user.email} (User ID: ${user.user_id}, Logins Count: ${user.logins_count !== undefined ? user.logins_count : 'Not Available'})`); // Adjust logins_count display
   });
+}
+
+async function NoLogins() {
+  const accessToken = await getAccessToken();
+  if (!accessToken) return;
+
+  const users = await GetAll(accessToken);
+  if (!users || users.length === 0) {
+    console.log('No users found.');
+    return;
+  }
+
+  const NoLogins = users.filter(user => user.logins_count === undefined || user.logins_count === 0);
+  
+  if (NoLogins.length === 0) {
+    console.log('No users with zero logins found.');
+  } else {
+    console.log('List of Users with 0 Logins:');
+    NoLogins.forEach(user => {
+      console.log(`- ${user.email} (User ID: ${user.user_id})`);
+    });
+  }
 }
 
 async function deleteUser(accessToken, userId) {
@@ -97,12 +137,14 @@ async function main() {
       type: 'list',
       name: 'action',
       message: 'What do you want to do?',
-      choices: ['List All Users', 'Delete All Users', 'Exit'],
+      choices: ['List All Users', 'List Users with No Logins', 'Delete All Users', 'Exit'],
     },
   ]);
 
   if (options.action === 'List All Users') {
     await ListAll(); 
+  } else if (options.action === 'List Users with No Logins') {
+    await NoLogins(); 
   } else if (options.action === 'Delete All Users') {
     await DeleteAll(); 
   } else {
