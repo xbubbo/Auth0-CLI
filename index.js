@@ -5,7 +5,7 @@ require('dotenv').config();
 const DOMAIN = process.env.DOMAIN;
 const CLIENT_ID = process.env.CLIENT_ID;
 const SECRET = process.env.SECRET;
-const INACTIVE = parseInt(process.env.INACTIVE, 10);
+const INACTIVE = parseFloat(process.env.INACTIVE);
 
 async function getAccessToken() {
   try {
@@ -40,12 +40,12 @@ async function GetAll(accessToken) {
       });
 
       users = users.concat(response.data);
-      console.log(`Fetched page ${page + 1} with ${response.data.length} users`); 
+      // console.log(`Fetched page ${page + 1} with ${response.data.length} users`); 
       hasMore = response.data.length === perPage; 
       page++;
     }
 
-    console.log(`Total users fetched: ${users.length}`); 
+    // console.log(`Total users fetched: ${users.length}`); 
     return users;
   } catch (error) {
     console.error('Error fetching users:', error.response ? error.response.data : error.message);
@@ -175,49 +175,55 @@ async function DeleteNoLogins() {
   async function DeleteInactive() {
     const accessToken = await getAccessToken();
     if (!accessToken) return;
-  
+
     const users = await GetAll(accessToken);
     if (!users || users.length === 0) {
-      console.log('No users found.');
-      return;
+        console.log('No users found.');
+        return;
     }
-  
+
     const cutoffDate = new Date();
-    cutoffDate.setMonth(cutoffDate.getMonth() - INACTIVE);
-  
+    cutoffDate.setMonth(cutoffDate.getMonth() - INACTIVE); 
+
     const inactiveUsers = users.filter(user => {
-      const lastLogin = user.last_login ? new Date(user.last_login) : null;
-      return !lastLogin || lastLogin < cutoffDate; 
+        const lastLogin = user.last_login ? new Date(user.last_login) : null;
+        return !lastLogin || lastLogin < cutoffDate; 
     });
-  
-    if (inactiveUsers.length === 0) {
-      console.log('No inactive users found.');
+
+    const inactiveCount = inactiveUsers.length; 
+    if (inactiveCount === 0) {
+        console.log('No inactive users found.');
     } else {
-      console.log('List of Inactive Users:');
-      inactiveUsers.forEach(user => {
-        console.log(`- ${user.email} (User ID: ${user.user_id})`);
-      });
-  
-      const answer = await inquirer.prompt([
-        {
-          type: 'confirm',
-          name: 'confirm',
-          message: 'Are you sure you want to delete all inactive users? This action is irreversible.',
-          default: false,
-        },
-      ]);
-  
-      if (answer.confirm) {
-        for (const user of inactiveUsers) {
-          await deleteUser(accessToken, user.user_id);
+        console.log(`Fetched ${Math.ceil(users.length / 50)} pages with ${users.length} users`);
+        console.log(`Inactive Users: ${inactiveCount}`);
+        console.log('List of Inactive Users:');
+        
+        inactiveUsers.forEach(user => {
+            const lastLogin = user.last_login ? new Date(user.last_login) : null;
+            const inactiveDuration = lastLogin ? Math.floor((Date.now() - lastLogin) / (1000 * 60 * 60 * 24)) : 'N/A'; // Days inactive
+            console.log(`- ${user.email} (User ID: ${user.user_id}, Inactive for: ${inactiveDuration} days)`);
+        });
+
+        const answer = await inquirer.prompt([
+            {
+                type: 'confirm',
+                name: 'confirm',
+                message: 'Are you sure you want to delete all inactive users? This action is irreversible.',
+                default: false,
+            },
+        ]);
+
+        if (answer.confirm) {
+            for (const user of inactiveUsers) {
+                await deleteUser(accessToken, user.user_id);
+            }
+            console.log('All inactive users deleted successfully.');
+        } else {
+            console.log('Action cancelled. No users were deleted.');
         }
-        console.log('All inactive users deleted successfully.');
-      } else {
-        console.log('Action cancelled. No users were deleted.');
-      }
     }
-  }
-  
+}
+
   
 async function ChooseList() {
   const option = await inquirer.prompt([
