@@ -8,6 +8,7 @@ const CLIENT_ID = process.env.CLIENT_ID;
 const SECRET = process.env.SECRET;
 const MONTHS = parseInt(process.env.INACTIVEM) || 0;
 const DAYS = parseInt(process.env.INACTIVED) || 0;
+const LIMIT = 800; 
 
 async function getAccessToken() {
   try {
@@ -134,7 +135,7 @@ async function ListInactive() {
     }
   }
 
-async function deleteUser(accessToken, userId) {
+ async function DeleteUser(accessToken, userId) {
   try {
     await axios.delete(`https://${DOMAIN}/api/v2/users/${userId}`, {
       headers: {
@@ -168,7 +169,8 @@ async function DeleteAll() {
 
   if (answer.confirm) {
     for (const user of users) {
-      await deleteUser(accessToken, user.user_id);
+      await DeleteUser(accessToken, user.user_id);
+      await new Promise(resolve => setTimeout(resolve, LIMIT));
     }
     console.log('All users deleted successfully.');
   } else {
@@ -207,7 +209,7 @@ async function DeleteNoLogins() {
 
     if (answer.confirm) {
       for (const user of NoLogins) {
-        await deleteUser(accessToken, user.user_id);
+        await DeleteUser(accessToken, user.user_id);
       }
       console.log('All users with no logins deleted successfully.');
     } else {
@@ -267,7 +269,7 @@ async function DeleteInactive() {
       if (answer.confirm) {
         console.log(`Deleting ${inactiveCount} inactive users...`);
         for (const user of inactiveUsers) {
-          await deleteUser(accessToken, user.user_id);
+          await DeleteUser(accessToken, user.user_id);
         }
         console.log('All inactive users deleted successfully.');
       } else {
@@ -318,7 +320,7 @@ async function AddUser() {
     }
   }
   
-  async function ImportUsers() {
+async function ImportUsers() {
     const accessToken = await getAccessToken();
     if (!accessToken) return;
   
@@ -341,6 +343,7 @@ async function AddUser() {
             },
           });
           console.log(`Imported user: ${user.email}`);
+          await new Promise(resolve => setTimeout(resolve, LIMIT));
         }
       } catch (error) {
         console.error(`Error importing users:`, error.response ? error.response.data : error.message);
