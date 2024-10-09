@@ -10,17 +10,17 @@ async function getAccessToken() {
   try {
     const response = await axios.post(`https://${DOMAIN}/oauth/token`, {
       client_id: CLIENT_ID,
-      client_secret: SECRET, 
+      client_secret: SECRET,
       audience: `https://${DOMAIN}/api/v2/`,
       grant_type: 'client_credentials',
     });
     return response.data.access_token;
   } catch (error) {
-    console.error('Error getting access token:', error.message);
+    console.error('Error getting access token:', error.response ? error.response.data : error.message);
   }
 }
 
-async function getAllUsers(accessToken) {
+async function GetAll(accessToken) {
   try {
     const response = await axios.get(`https://${DOMAIN}/api/v2/users`, {
       headers: {
@@ -29,8 +29,24 @@ async function getAllUsers(accessToken) {
     });
     return response.data;
   } catch (error) {
-    console.error('Error fetching users:', error.message);
+    console.error('Error fetching users:', error.response ? error.response.data : error.message);
   }
+}
+
+async function ListAll() {
+  const accessToken = await getAccessToken();
+  if (!accessToken) return;
+
+  const users = await GetAll(accessToken);
+  if (!users || users.length === 0) {
+    console.log('No users found.');
+    return;
+  }
+
+  console.log('List of Users:');
+  users.forEach(user => {
+    console.log(`- ${user.email} (User ID: ${user.user_id})`);
+  });
 }
 
 async function deleteUser(accessToken, userId) {
@@ -42,15 +58,15 @@ async function deleteUser(accessToken, userId) {
     });
     console.log(`Deleted user: ${userId}`);
   } catch (error) {
-    console.error(`Error deleting user ${userId}:`, error.message);
+    console.error(`Error deleting user ${userId}:`, error.response ? error.response.data : error.message);
   }
 }
 
-async function deleteAllUsers() {
+async function DeleteAll() {
   const accessToken = await getAccessToken();
   if (!accessToken) return;
 
-  const users = await getAllUsers(accessToken);
+  const users = await GetAll(accessToken);
   if (!users || users.length === 0) {
     console.log('No users found.');
     return;
@@ -81,12 +97,14 @@ async function main() {
       type: 'list',
       name: 'action',
       message: 'What do you want to do?',
-      choices: ['Delete All Users', 'Exit'],
+      choices: ['List All Users', 'Delete All Users', 'Exit'],
     },
   ]);
 
-  if (options.action === 'Delete All Users') {
-    await deleteAllUsers();
+  if (options.action === 'List All Users') {
+    await ListAll(); 
+  } else if (options.action === 'Delete All Users') {
+    await DeleteAll(); 
   } else {
     console.log('Exiting...');
   }
