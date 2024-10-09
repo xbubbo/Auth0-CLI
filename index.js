@@ -1,5 +1,6 @@
 const axios = require('axios');
 const inquirer = require('inquirer').default;
+const fs = require('node:fs'); 
 require('dotenv').config();
 
 const DOMAIN = process.env.DOMAIN;
@@ -254,6 +255,79 @@ async function DeleteInactive() {
   }
 }
 
+async function AddUser() {
+    const accessToken = await getAccessToken();
+    if (!accessToken) return;
+  
+    let email; 
+  
+    while (true) { 
+      if (!email) {
+        const emailInput = await inquirer.prompt([
+          { type: 'input', name: 'email', message: 'Enter the email of the user:' },
+        ]);
+        email = emailInput.email; 
+      }
+  
+      const passwordInput = await inquirer.prompt([
+        { type: 'input', name: 'password', message: 'Enter the password for the user:' },
+      ]);
+      const password = passwordInput.password; 
+  
+      try {
+        const response = await axios.post(`https://${DOMAIN}/api/v2/users`, {
+          email: email,
+          password: password,
+          connection: process.env.CONNECTION,
+        }, {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        });
+        console.log(`Added user: ${response.data.email} (User ID: ${response.data.user_id})`);
+        break; 
+      } catch (error) {
+        if (error.response && error.response.data && error.response.data.message.includes('PasswordStrengthError')) {
+          console.log('Password is too weak. Please try again.'); 
+        } else {
+          console.error(`Error adding user:`, error.response ? error.response.data : error.message);
+          break; 
+        }
+      }
+    }
+  }
+  
+  async function ImportUsers() {
+    const accessToken = await getAccessToken();
+    if (!accessToken) return;
+  
+    fs.readFile('./data/users.json', 'utf8', async (err, data) => {
+      if (err) {
+        console.error('Error reading users.json:', err);
+        return;
+      }
+  
+      try {
+        const users = JSON.parse(data);
+        for (const user of users) {
+          await axios.post(`https://${DOMAIN}/api/v2/users`, {
+            email: user.email,
+            password: user.password,
+            connection: user.connection, 
+          }, {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          });
+          console.log(`Imported user: ${user.email}`);
+        }
+      } catch (error) {
+        console.error(`Error importing users:`, error.response ? error.response.data : error.message);
+      }
+    });
+  }
+  
+
 async function ChooseList() {
   const option = await inquirer.prompt([
     {
@@ -296,23 +370,44 @@ async function ChooseDelete() {
   }
 }
 
-async function Menu() {
-  const option = await inquirer.prompt([
-    {
-      type: 'list',
-      name: 'list',
-      message: 'What do you want to do?',
-      choices: ['List Users', 'Delete Users', 'Exit'],
-    },
-  ]);
-
-  if (option.list === 'List Users') {
-    await ChooseList();
-  } else if (option.list === 'Delete Users') {
-    await ChooseDelete();
-  } else {
-    console.log('Exiting...');
+async function ChooseAdd() {
+    const option = await inquirer.prompt([
+      {
+        type: 'list',
+        name: 'addOption',
+        message: 'What do you want to do?',
+        choices: ['Add User', 'Import Users', 'Back'],
+      },
+    ]);
+  
+    if (option.addOption === 'Add User') {
+      await AddUser();
+    } else if (option.addOption === 'Import Users') {
+      await ImportUsers();
+    } else if (option.addOption === 'Back') {
+      await Main();
+    }
   }
-}
+
+  async function Main() {
+    const option = await inquirer.prompt([
+      {
+        type: 'list',
+        name: 'list',
+        message: 'What do you want to do?',
+        choices: ['List Users', 'Delete Users', 'Add Users', 'Exit'],
+      },
+    ]);
+  
+    if (option.list === 'List Users') {
+      await ChooseList();
+    } else if (option.list === 'Delete Users') {
+      await ChooseDelete();
+    } else if (option.list === 'Add Users') {
+      await ChooseAdd();
+    } else {
+      console.log('Exiting...');
+    }
+  }
 
 Main();
