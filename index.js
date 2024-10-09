@@ -10,7 +10,7 @@ const MONTHS = parseInt(process.env.INACTIVEM) || 0;
 const DAYS = parseInt(process.env.INACTIVED) || 0;
 const LIMIT = 800; 
 
-async function getAccessToken() {
+async function getToken() {
   try {
     const response = await axios.post(`https://${DOMAIN}/oauth/token`, {
       client_id: CLIENT_ID,
@@ -24,7 +24,7 @@ async function getAccessToken() {
   }
 }
 
-async function GetAll(accessToken) {
+async function GetAll(Token) {
   try {
     let users = [];
     let page = 0;
@@ -34,7 +34,7 @@ async function GetAll(accessToken) {
     while (hasMore) {
       const response = await axios.get(`https://${DOMAIN}/api/v2/users`, {
         headers: {
-          Authorization: `Bearer ${accessToken}`,
+          Authorization: `Bearer ${Token}`,
         },
         params: {
           page: page,
@@ -43,12 +43,12 @@ async function GetAll(accessToken) {
       });
 
       users = users.concat(response.data);
-           // console.log(`Fetched page ${page + 1} with ${response.data.length} users`);  
+// console.log(`Fetched page ${page + 1} with ${response.data.length} users`);  
       hasMore = response.data.length === perPage;
       page++;
     }
 
-        // console.log(`Total users fetched: ${users.length}`); 
+// console.log(`Total users fetched: ${users.length}`); 
     return users;
   } catch (error) {
     console.error('Error fetching users:', error.response ? error.response.data : error.message);
@@ -56,10 +56,10 @@ async function GetAll(accessToken) {
 }
 
 async function ListAll() {
-  const accessToken = await getAccessToken();
-  if (!accessToken) return;
+  const Token = await getToken();
+  if (!Token) return;
 
-  const users = await GetAll(accessToken);
+  const users = await GetAll(Token);
   if (!users || users.length === 0) {
     console.log('No users found.');
     return;
@@ -72,10 +72,10 @@ async function ListAll() {
 }
 
 async function NoLogins() {
-  const accessToken = await getAccessToken();
-  if (!accessToken) return;
+  const Token = await getToken();
+  if (!Token) return;
 
-  const users = await GetAll(accessToken);
+  const users = await GetAll(Token);
   if (!users || users.length === 0) {
     console.log('No users found.');
     return;
@@ -94,10 +94,10 @@ async function NoLogins() {
 }
 
 async function ListInactive() {
-    const accessToken = await getAccessToken();
-    if (!accessToken) return;
+    const Token = await getToken();
+    if (!Token) return;
   
-    const users = await GetAll(accessToken);
+    const users = await GetAll(Token);
     if (!users || users.length === 0) {
       console.log('No users found.');
       return;
@@ -135,11 +135,11 @@ async function ListInactive() {
     }
   }
 
- async function DeleteUser(accessToken, userId) {
+ async function DeleteUser(Token, userId) {
   try {
     await axios.delete(`https://${DOMAIN}/api/v2/users/${userId}`, {
       headers: {
-        Authorization: `Bearer ${accessToken}`,
+        Authorization: `Bearer ${Token}`,
       },
     });
     console.log(`Deleted user: ${userId}`);
@@ -149,40 +149,48 @@ async function ListInactive() {
 }
 
 async function DeleteAll() {
-  const accessToken = await getAccessToken();
-  if (!accessToken) return;
-
-  const users = await GetAll(accessToken);
-  if (!users || users.length === 0) {
-    console.log('No users found.');
-    return;
-  }
-
-  const answer = await inquirer.prompt([
-    {
-      type: 'confirm',
-      name: 'confirm',
-      message: 'Are you sure you want to delete all users? This action is irreversible.',
-      default: false,
-    },
-  ]);
-
-  if (answer.confirm) {
-    for (const user of users) {
-      await DeleteUser(accessToken, user.user_id);
-      await new Promise(resolve => setTimeout(resolve, LIMIT));
+    const Token = await getToken();
+    if (!Token) return;
+  
+    const users = await GetAll(Token);
+    if (!users || users.length === 0) {
+      console.log('No users found.');
+      return;
     }
-    console.log('All users deleted successfully.');
-  } else {
-    console.log('Action cancelled. No users were deleted.');
+  
+    if (users.length <= 1) {
+      console.log('You cannot delete all users. At least one user must remain.');
+      return;
+    }
+  
+    const answer = await inquirer.prompt([
+      {
+        type: 'confirm',
+        name: 'confirm',
+        message: 'Are you sure you want to delete all users? This action is irreversible.',
+        default: false,
+      },
+    ]);
+  
+    if (answer.confirm) {
+      const ToDelete = users.slice(0, users.length - 1); 
+  
+      for (const user of ToDelete) {
+        await DeleteUser(Token, user.user_id);
+        await new Promise(resolve => setTimeout(resolve, LIMIT));
+      }
+      console.log('All users deleted successfully except for one.');
+    } else {
+      console.log('Action cancelled. No users were deleted.');
+    }
   }
-}
+  
 
 async function DeleteNoLogins() {
-  const accessToken = await getAccessToken();
-  if (!accessToken) return;
+  const Token = await getToken();
+  if (!Token) return;
 
-  const users = await GetAll(accessToken);
+  const users = await GetAll(Token);
   if (!users || users.length === 0) {
     console.log('No users found.');
     return;
@@ -209,7 +217,7 @@ async function DeleteNoLogins() {
 
     if (answer.confirm) {
       for (const user of NoLogins) {
-        await DeleteUser(accessToken, user.user_id);
+        await DeleteUser(Token, user.user_id);
       }
       console.log('All users with no logins deleted successfully.');
     } else {
@@ -219,10 +227,10 @@ async function DeleteNoLogins() {
 }
 
 async function DeleteInactive() {
-    const accessToken = await getAccessToken();
-    if (!accessToken) return;
+    const Token = await getToken();
+    if (!Token) return;
   
-    const users = await GetAll(accessToken);
+    const users = await GetAll(Token);
     if (!users || users.length === 0) {
       console.log('No users found.');
       return;
@@ -269,7 +277,7 @@ async function DeleteInactive() {
       if (answer.confirm) {
         console.log(`Deleting ${inactiveCount} inactive users...`);
         for (const user of inactiveUsers) {
-          await DeleteUser(accessToken, user.user_id);
+          await DeleteUser(Token, user.user_id);
         }
         console.log('All inactive users deleted successfully.');
       } else {
@@ -279,8 +287,8 @@ async function DeleteInactive() {
   }
   
 async function AddUser() {
-    const accessToken = await getAccessToken();
-    if (!accessToken) return;
+    const Token = await getToken();
+    if (!Token) return;
   
     let email; 
   
@@ -304,7 +312,7 @@ async function AddUser() {
           connection: process.env.CONNECTION,
         }, {
           headers: {
-            Authorization: `Bearer ${accessToken}`,
+            Authorization: `Bearer ${Token}`,
           },
         });
         console.log(`Added user: ${response.data.email} (User ID: ${response.data.user_id})`);
@@ -321,8 +329,8 @@ async function AddUser() {
   }
   
 async function ImportUsers() {
-    const accessToken = await getAccessToken();
-    if (!accessToken) return;
+    const Token = await getToken();
+    if (!Token) return;
   
     fs.readFile('./data/users.json', 'utf8', async (err, data) => {
       if (err) {
@@ -339,7 +347,7 @@ async function ImportUsers() {
             connection: user.connection, 
           }, {
             headers: {
-              Authorization: `Bearer ${accessToken}`,
+              Authorization: `Bearer ${Token}`,
             },
           });
           console.log(`Imported user: ${user.email}`);
