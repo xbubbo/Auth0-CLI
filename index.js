@@ -131,22 +131,40 @@ async function DeleteAll() {
   }
 }
 
+async function ChooseList() {
+  const option = await inquirer.prompt([
+    {
+      type: 'list',
+      name: 'listOption',
+      message: 'What do you want to do?',
+      choices: ['List All Users', 'List Users with No Logins', 'Back'],
+    },
+  ]);
+
+  if (option.listOption === 'List All Users') {
+    await ListAll();
+  } else if (option.listOption === 'List Users with No Logins') {
+    await NoLogins();
+  } else {
+    console.log('Going back...');
+    return; 
+  }
+}
+
 async function main() {
   const options = await inquirer.prompt([
     {
       type: 'list',
       name: 'action',
       message: 'What do you want to do?',
-      choices: ['List All Users', 'List Users with No Logins', 'Delete All Users', 'Exit'],
+      choices: ['List Users', 'Delete All Users', 'Exit'],
     },
   ]);
 
-  if (options.action === 'List All Users') {
-    await ListAll(); 
-  } else if (options.action === 'List Users with No Logins') {
-    await NoLogins(); 
+  if (options.action === 'List Users') {
+    await ChooseList(); 
   } else if (options.action === 'Delete All Users') {
-    await DeleteAll(); 
+    await DeleteAll();
   } else {
     console.log('Exiting...');
   }
