@@ -8,7 +8,7 @@ const CLIENT_ID = process.env.CLIENT_ID;
 const SECRET = process.env.SECRET;
 const MONTHS = parseInt(process.env.INACTIVEM) || 0;
 const DAYS = parseInt(process.env.INACTIVED) || 0;
-const LIMIT = 800; 
+const LIMIT = 850; 
 
 async function getToken() {
   try {
