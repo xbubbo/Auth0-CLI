@@ -344,7 +344,7 @@ async function ImportUsers() {
           await axios.post(`https://${DOMAIN}/api/v2/users`, {
             email: user.email,
             password: user.password,
-            connection: user.connection, 
+            connection: process.env.CONNECTION, 
           }, {
             headers: {
               Authorization: `Bearer ${Token}`,

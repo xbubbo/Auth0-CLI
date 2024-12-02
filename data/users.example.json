@@ -1,7 +1,7 @@
 [
-    { "email": "user1@example.com", "password": "password1*#(#N#", "connection": "Username-Password-Authentication" },
-    { "email": "user2@example.com", "password": "password2*#(#N#", "connection": "Username-Password-Authentication" },
-    { "email": "user3@example.com", "password": "password3*#(#N#", "connection": "Username-Password-Authentication" },
-    { "email": "user4@example.com", "password": "password4*#(#N#", "connection": "Username-Password-Authentication" }
+    { "email": "user1@example.com", "password": "password1*#(#N#" },
+    { "email": "user2@example.com", "password": "password2*#(#N#" },
+    { "email": "user3@example.com", "password": "password3*#(#N#" },
+    { "email": "user4@example.com", "password": "password4*#(#N#" }
   ]
   
