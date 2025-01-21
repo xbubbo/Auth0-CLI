@@ -135,19 +135,40 @@ async function ListInactive() {
     }
   }
 
- async function DeleteUser(Token, userId) {
-  try {
-    await axios.delete(`https://${DOMAIN}/api/v2/users/${userId}`, {
-      headers: {
-        Authorization: `Bearer ${Token}`,
-      },
-    });
-    console.log(`Deleted user: ${userId}`);
-  } catch (error) {
-    console.error(`Error deleting user ${userId}:`, error.response ? error.response.data : error.message);
+  async function DeleteUser(Token, userId) {
+    const MAX_RETRIES = 5;  
+    let retries = 0;
+    
+    while (retries < MAX_RETRIES) {
+      try {
+        const response = await axios.delete(`https://${DOMAIN}/api/v2/users/${userId}`, {
+          headers: {
+            Authorization: `Bearer ${Token}`,
+          },
+        });
+  
+        if (response.status === 204) {
+          console.log(`Deleted user: ${userId}`);
+          return;  
+        } else {
+          console.log(`Unexpected status for ${userId}: ${response.status}`);
+          return;
+        }
+      } catch (error) {
+        if (error.response && error.response.status === 429) {
+          retries++;
+          const retryAfter = parseInt(error.response.headers['retry-after'] || 5); 
+          console.log(`Rate limit hit for ${userId}. Retrying in ${retryAfter} seconds...`);
+          await new Promise(resolve => setTimeout(resolve, retryAfter * 1000)); 
+        } else {
+          console.error(`Error deleting user ${userId}:`, error.response ? error.response.data : error.message);
+          return;  
+        }
+      }
+    }
+    console.error(`Failed to delete user ${userId} after ${MAX_RETRIES} retries.`);
   }
-}
-
+  
 async function DeleteAll() {
     const Token = await getToken();
     if (!Token) return;
